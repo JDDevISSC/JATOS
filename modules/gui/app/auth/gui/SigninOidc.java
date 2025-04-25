@@ -86,20 +86,25 @@ public abstract class SigninOidc extends Controller {
         private final String discoveryUrl;
         private final String callbackUrlPath;
         private String callbackUrl; // Filled during signin request
+        private final String scope;
         private final String clientId;
         private final String clientSecret;
         private final String idTokenSigningAlgorithm;
         private final String successMsg;
+        private final boolean useEmailAsUsername;
 
         OidcConfig(User.AuthMethod authMethod, String discoveryUrl, String callbackUrlPath,
-                String clientId, String clientSecret, String idTokenSigningAlgorithm, String successMsg) {
+                String scope, String clientId, String clientSecret, String idTokenSigningAlgorithm, String successMsg,
+                boolean useEmailAsUsername) {
             this.authMethod = authMethod;
             this.discoveryUrl = discoveryUrl;
             this.callbackUrlPath = callbackUrlPath;
+            this.scope = scope;
             this.clientId = clientId;
             this.clientSecret = clientSecret;
             this.idTokenSigningAlgorithm = idTokenSigningAlgorithm;
             this.successMsg = successMsg;
+            this.useEmailAsUsername = useEmailAsUsername;
         }
     }
 
@@ -118,7 +123,7 @@ public abstract class SigninOidc extends Controller {
         Nonce nonce = new Nonce();
         AuthenticationRequest authRequest = new AuthenticationRequest.Builder(
                 new ResponseType("code"),
-                this.getScope(),
+                new Scope(oidcConfig.scope.split(",")),
                 clientID,
                 callback
         ).endpointURI(getProviderInfo().getAuthorizationEndpointURI())
@@ -150,10 +155,10 @@ public abstract class SigninOidc extends Controller {
 
             User user = persistUserIfNotExisting(userInfo);
 
-            String normalizedEmailAddress = User.normalizeUsername(userInfo.getEmailAddress());
             boolean keepSignedin = Boolean.parseBoolean(request.session().getOptional("keepSignedin").orElse("false"));
-            authService.writeSessionCookie(session(), normalizedEmailAddress, keepSignedin);
-            userService.setLastSignin(normalizedEmailAddress);
+            String username = user.getUsername();
+            authService.writeSessionCookie(session(), username, keepSignedin);
+            userService.setLastSignin(username);
 
             if (!Strings.isNullOrEmpty(oidcConfig.successMsg)) {
                 FlashScopeMessaging.success(oidcConfig.successMsg);
@@ -168,10 +173,6 @@ public abstract class SigninOidc extends Controller {
             FlashScopeMessaging.error("OIDC error - contact your admin and check the logs for more information.");
             return redirect(auth.gui.routes.Signin.signin());
         }
-    }
-
-    protected Scope getScope() {
-        return new Scope("openid");
     }
 
     private OIDCProviderMetadata getProviderInfo() throws ParseException, URISyntaxException, AuthException {
@@ -270,14 +271,13 @@ public abstract class SigninOidc extends Controller {
     }
 
     private User persistUserIfNotExisting(UserInfo userInfo) throws AuthException {
-        String emailAddress = userInfo.getEmailAddress();
-        String normalizedEmailAddress = User.normalizeUsername(emailAddress);
-        User user = userDao.findByUsername(normalizedEmailAddress);
+        String normalizedUsername = User.normalizeUsername(getUsername(userInfo));
+        User user = userDao.findByUsername(normalizedUsername);
         if (user == null) {
             NewUserModel newUserModel = new NewUserModel();
-            newUserModel.setUsername(normalizedEmailAddress);
+            newUserModel.setUsername(normalizedUsername);
             newUserModel.setName(getName(userInfo));
-            newUserModel.setEmail(emailAddress);
+            newUserModel.setEmail(userInfo.getEmailAddress());
             newUserModel.setAuthMethod(oidcConfig.authMethod);
 
             Form<NewUserModel> newUserForm = formFactory.form(NewUserModel.class).fill(newUserModel);
@@ -302,7 +302,11 @@ public abstract class SigninOidc extends Controller {
             String familyName = userInfo.getFamilyName() != null ? userInfo.getFamilyName() : "";
             return (givenName + " " + familyName).trim();
         }
-        return userInfo.getEmailAddress();
+        return getUsername(userInfo);
+    }
+
+    private String getUsername(UserInfo userInfo) {
+        return oidcConfig.useEmailAsUsername ? userInfo.getEmailAddress() : userInfo.getSubject().getValue();
     }
 
 }

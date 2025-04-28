@@ -20,12 +20,12 @@ public class SigninConext extends SigninOidc {
                 User.AuthMethod.CONEXT,
                 Common.getConextDiscoveryUrl(),
                 routes.SigninConext.callback().url(),
-                Common.getConextScope(),
                 Common.getConextClientId(),
                 Common.getConextClientSecret(),
+                Common.getConextScope(),
+                Common.getConextUsernameFrom(),
                 Common.getConextIdTokenSigningAlgorithm(),
-                Common.getConextSuccessFeedback(),
-                Common.conextUseEmailAsUsername()
+                Common.getConextSuccessFeedback()
         ));
     }
 

@@ -7,7 +7,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 /**
- * Sign-in using SRAM (sram.surf.nl) based on OpenID Connect (OIDC)
+ * Sign-in using SRAM (sram.surf.nl) based on OpenID Connect (OIDC).
  *
  * @author Jori van Dam
  */
@@ -20,12 +20,12 @@ public class SigninSram extends SigninOidc {
                 User.AuthMethod.SRAM,
                 Common.getSramDiscoveryUrl(),
                 auth.gui.routes.SigninSram.callback().url(),
-                Common.getSramScope(),
                 Common.getSramClientId(),
                 Common.getSramClientSecret(),
+                Common.getSramScope(),
+                Common.getSramUsernameFrom(),
                 Common.getSramIdTokenSigningAlgorithm(),
-                Common.getSramSuccessFeedback(),
-                Common.sramUseEmailAsUsername()
+                Common.getSramSuccessFeedback()
         ));
     }
 
